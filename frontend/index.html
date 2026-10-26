@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketChain – Vé sự kiện chống giả mạo</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       PHẦN CHUNG – A phụ trách
+       Header, kết nối ví, thanh tab. B và C không sửa vùng này.
+       ================================================================ -->
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <span class="brand-name">TicketChain</span>
+    </div>
+    <div class="wallet">
+      <span id="network-badge" class="badge badge-muted">Chưa kết nối</span>
+      <span id="account-address" class="address"></span>
+      <button id="connect-btn" class="btn btn-primary">Kết nối MetaMask</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Tab chạy bằng CSS (radio + label), không cần JavaScript -->
+    <input type="radio" name="tab" id="tab-organizer" class="tab-input" checked>
+    <input type="radio" name="tab" id="tab-buyer" class="tab-input">
+    <input type="radio" name="tab" id="tab-staff" class="tab-input">
+
+    <nav class="tabs">
+      <label for="tab-organizer" class="tab">Ban tổ chức</label>
+      <label for="tab-buyer" class="tab">Người mua</label>
+      <label for="tab-staff" class="tab">Soát vé</label>
+    </nav>
+
+    <!-- ================================================================
+         PHẦN A – Ban tổ chức
+         Tạo sự kiện, quản lý nhân viên soát vé, thống kê.
+         Logic: js/organizer.js
+         ================================================================ -->
+    <section id="organizer" class="panel panel-organizer">
+      <h2>Ban tổ chức</h2>
+      <p class="muted">Tạo sự kiện, cấp quyền nhân viên soát vé và theo dõi số vé.</p>
+
+      <div class="card">
+        <h3>Tạo sự kiện</h3>
+        <div id="create-event-area"></div>
+      </div>
+
+      <div class="card">
+        <h3>Nhân viên soát vé</h3>
+        <div id="staff-area"></div>
+      </div>
+
+      <div class="card">
+        <h3>Thống kê</h3>
+        <div id="stats-area"></div>
+      </div>
+
+      <!-- Vùng dành cho C: nút Hủy sự kiện (C gắn vào từ js/refund.js) -->
+      <div id="cancel-area"></div>
+    </section>
+    <!-- ===================== HẾT PHẦN A ===================== -->
+
+
+    <!-- ================================================================
+         PHẦN B – Người mua
+         Danh sách sự kiện, mua vé, vé của tôi, hiển thị QR.
+         Logic: js/buyer.js
+         ================================================================ -->
+    <section id="buyer" class="panel panel-buyer">
+      <h2>Người mua</h2>
+      <p class="muted">Chọn sự kiện, mua vé và mở QR để vào cửa.</p>
+
+      <div class="card">
+        <h3>Sự kiện đang mở bán</h3>
+        <div id="event-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Vé của tôi</h3>
+        <div id="my-tickets"></div>
+      </div>
+
+      <!-- Vùng dành cho C: nút Nhận hoàn tiền (C gắn vào từ js/refund.js) -->
+      <div id="refund-area"></div>
+    </section>
+    <!-- ===================== HẾT PHẦN B ===================== -->
+
+
+    <!-- ================================================================
+         PHẦN C – Soát vé
+         Quét QR, xác minh, check-in, lịch sử, tra cứu vé công khai.
+         Logic: js/staff.js, js/refund.js
+         ================================================================ -->
+    <section id="staff" class="panel panel-staff">
+      <h2>Soát vé</h2>
+      <p class="muted">Quét QR của người mua để xác nhận vào cửa.</p>
+
+      <div class="card">
+        <h3>Quét vé</h3>
+        <div id="scanner-area"></div>
+        <div id="scan-result"></div>
+      </div>
+
+      <div class="card">
+        <h3>Lịch sử soát vé</h3>
+        <div id="checkin-log"></div>
+      </div>
+
+      <div class="card">
+        <h3>Tra cứu vé</h3>
+        <div id="lookup-area"></div>
+      </div>
+    </section>
+    <!-- ===================== HẾT PHẦN C ===================== -->
+  </main>
+
+  <footer class="app-footer">
+    <span>Mạng: Sepolia Testnet</span>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS – mỗi người tự thêm dòng script của mình khi tạo file
+       Thứ tự: config → wallet → các phần
+       ================================================================ -->
+  <!-- A: <script src="js/config.js"></script> -->
+  <!-- A: <script src="js/wallet.js"></script> -->
+  <!-- A: <script src="js/organizer.js"></script> -->
+  <!-- B: <script src="js/buyer.js"></script> -->
+  <!-- C: <script src="js/staff.js"></script> -->
+  <!-- C: <script src="js/refund.js"></script> -->
+</body>
+</html>
