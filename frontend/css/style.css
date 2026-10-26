@@ -1,0 +1,149 @@
+/* ==============================================================
+   TicketChain – base stylesheet
+   ============================================================== */
+
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --text: #1c1f2a;
+  --muted: #6b7083;
+  --border: #e3e6ef;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ---------- Header ---------- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
+.brand-mark { color: var(--primary); }
+
+.wallet { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.address { font-family: ui-monospace, monospace; font-size: 13px; color: var(--muted); }
+
+/* ---------- Layout ---------- */
+.container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+/* ---------- Tabs (CSS only) ---------- */
+.tab-input { display: none; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 10px 18px;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+
+.panel { display: none; }
+
+#tab-organizer:checked ~ .panel-organizer,
+#tab-buyer:checked ~ .panel-buyer,
+#tab-staff:checked ~ .panel-staff { display: block; }
+
+#tab-organizer:checked ~ .tabs label[for="tab-organizer"],
+#tab-buyer:checked ~ .tabs label[for="tab-buyer"],
+#tab-staff:checked ~ .tabs label[for="tab-staff"] {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ---------- Cards ---------- */
+.panel h2 { margin: 0 0 4px; }
+.muted { color: var(--muted); margin-top: 0; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.card h3 { margin: 0 0 12px; font-size: 16px; }
+
+/* ---------- Forms ---------- */
+label.field { display: block; margin-bottom: 12px; font-size: 14px; font-weight: 500; }
+
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"] {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* ---------- Badges & status ---------- */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge-muted   { background: #eef0f5; color: var(--muted); }
+.badge-success { background: #dcfce7; color: var(--success); }
+.badge-danger  { background: #fee2e2; color: var(--danger); }
+.badge-warning { background: #fef3c7; color: var(--warning); }
+
+.status { padding: 12px 14px; border-radius: 8px; font-weight: 600; margin-top: 12px; }
+.status-success { background: #dcfce7; color: var(--success); }
+.status-danger  { background: #fee2e2; color: var(--danger); }
+.status-warning { background: #fef3c7; color: var(--warning); }
+
+/* ---------- Footer ---------- */
+.app-footer { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 600px) {
+  .app-header { padding: 12px 16px; }
+  .tab { padding: 10px 12px; font-size: 14px; }
+}
