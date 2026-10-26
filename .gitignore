@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Hardhat build output
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# Secrets - KHONG BAO GIO commit file nay
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
