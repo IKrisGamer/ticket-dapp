@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TicketChain – Vé sự kiện chống giả mạo</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/organizer.css">
 </head>
 <body>
 
@@ -42,9 +43,17 @@
          Logic: js/organizer.js
          ================================================================ -->
     <section id="organizer" class="panel panel-organizer">
-      <h2>Ban tổ chức</h2>
-      <p class="muted">Tạo sự kiện, cấp quyền nhân viên soát vé và theo dõi số vé.</p>
-
+      <div class="org-hero">
+        <div>
+          <h2>Ban tổ chức</h2>
+          <p>Tạo sự kiện, cấp quyền nhân viên soát vé và theo dõi số vé.</p>
+        </div>
+        <div class="org-steps">
+          <span>1 · Tạo sự kiện</span>
+          <span>2 · Cấp quyền</span>
+          <span>3 · Theo dõi</span>
+        </div>
+      </div>
       <div class="card">
         <h3>Tạo sự kiện</h3>
         <div id="create-event-area"></div>
@@ -123,15 +132,28 @@
     <span>Mạng: Sepolia Testnet</span>
   </footer>
 
+  
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
   <!-- ================================================================
-       SCRIPTS – mỗi người tự thêm dòng script của mình khi tạo file
-       Thứ tự: config → wallet → các phần
+       THƯ VIỆN (CDN)
+       ethers v6: gọi contract, ký và xác minh chữ ký
+       qrcodejs: B vẽ mã QR · html5-qrcode: C quét QR bằng camera
        ================================================================ -->
-  <!-- A: <script src="js/config.js"></script> -->
-  <!-- A: <script src="js/wallet.js"></script> -->
-  <!-- A: <script src="js/organizer.js"></script> -->
-  <!-- B: <script src="js/buyer.js"></script> -->
-  <!-- C: <script src="js/staff.js"></script> -->
-  <!-- C: <script src="js/refund.js"></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- ================================================================
+       SCRIPTS CỦA NHÓM – thứ tự: deployment → config → wallet → các phần
+       Mỗi file tự đăng ký ABI và giao diện của mình vào đối tượng TC.
+       ================================================================ -->
+  <script src="js/deployment.js"></script>  <!-- sinh bởi scripts/deploy.js -->
+  <script src="js/config.js"></script>      <!-- A -->
+  <script src="js/wallet.js"></script>      <!-- A -->
+  <script src="js/organizer.js"></script>   <!-- A -->
+  <script src="js/buyer.js"></script>       <!-- B -->
+  <script src="js/staff.js"></script>       <!-- C -->
+  <script src="js/refund.js"></script>      <!-- C -->
+  
 </body>
 </html>
