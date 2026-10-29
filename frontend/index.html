@@ -123,18 +123,28 @@
     <span>Mạng: Sepolia Testnet</span>
   </footer>
 
-  <!-- ethers v6: kết nối ví, gọi contract -->
+  
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <!-- ================================================================
+       THƯ VIỆN (CDN)
+       ethers v6: gọi contract, ký và xác minh chữ ký
+       qrcodejs: B vẽ mã QR · html5-qrcode: C quét QR bằng camera
+       ================================================================ -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <!-- ================================================================
-       SCRIPTS – mỗi người tự thêm dòng script của mình khi tạo file
-       Thứ tự: config → wallet → các phần
+       SCRIPTS CỦA NHÓM – thứ tự: deployment → config → wallet → các phần
+       Mỗi file tự đăng ký ABI và giao diện của mình vào đối tượng TC.
        ================================================================ -->
-  <!-- A: <script src="js/config.js"></script> -->
-  <script src="js/wallet.js"></script>
-  <!-- A: <script src="js/organizer.js"></script> -->
-  <!-- B: <script src="js/buyer.js"></script> -->
-  <!-- C: <script src="js/staff.js"></script> -->
-  <!-- C: <script src="js/refund.js"></script> -->
+  <script src="js/deployment.js"></script>  <!-- sinh bởi scripts/deploy.js -->
+  <script src="js/config.js"></script>      <!-- A -->
+  <script src="js/wallet.js"></script>      <!-- A -->
+  <script src="js/organizer.js"></script>   <!-- A -->
+  <script src="js/buyer.js"></script>       <!-- B -->
+  <script src="js/staff.js"></script>       <!-- C -->
+  <script src="js/refund.js"></script>      <!-- C -->
+  
 </body>
 </html>
