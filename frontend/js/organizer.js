@@ -1,11 +1,12 @@
 /* ==================================================================
    organizer.js – A
-   Tab Ban tổ chức: tạo sự kiện.
+   Tab Ban tổ chức: tạo sự kiện, quản lý nhân viên soát vé.
    ================================================================== */
 (function () {
   const { escapeHtml, showStatus, txError } = TC.utils;
 
   const createArea = document.getElementById("create-event-area");
+  const staffArea = document.getElementById("staff-area");
 
   // ------------------------------------------------------------------
   // Form tạo sự kiện
@@ -68,4 +69,104 @@
       btn.disabled = false;
     }
   });
+
+  // ------------------------------------------------------------------
+  // Quản lý nhân viên soát vé
+  // ------------------------------------------------------------------
+  staffArea.innerHTML = `
+    <form id="staff-form" class="form-grid">
+      <label class="field">Sự kiện
+        <select name="eventId" id="staff-event-select" required></select>
+      </label>
+      <label class="field">Địa chỉ ví nhân viên
+        <input type="text" name="staff" required placeholder="0x…" pattern="^0x[0-9a-fA-F]{40}$">
+      </label>
+      <div class="form-actions">
+        <button type="submit" name="action" value="grant" class="btn btn-primary">Cấp quyền</button>
+        <button type="submit" name="action" value="revoke" class="btn">Thu hồi</button>
+        <button type="button" id="staff-check-btn" class="btn">Kiểm tra</button>
+      </div>
+    </form>
+    <div id="staff-status"></div>
+  `;
+
+  const staffForm = document.getElementById("staff-form");
+  const staffSelect = document.getElementById("staff-event-select");
+  const staffStatus = document.getElementById("staff-status");
+
+  staffForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const { contract } = TC.state;
+    if (!contract) return showStatus(staffStatus, "warning", "Hãy kết nối ví trước.");
+
+    const allow = e.submitter?.value !== "revoke";
+    const eventId = staffSelect.value;
+    const staff = staffForm.staff.value.trim();
+    if (!ethers.isAddress(staff)) return showStatus(staffStatus, "danger", "Địa chỉ ví không hợp lệ.");
+
+    const buttons = staffForm.querySelectorAll("button");
+    buttons.forEach((b) => (b.disabled = true));
+    try {
+      showStatus(staffStatus, "warning", "Đang chờ xác nhận trên MetaMask…");
+      const tx = await contract.setStaff(eventId, staff, allow);
+      await tx.wait();
+      showStatus(staffStatus, "success",
+        `${allow ? "Đã cấp" : "Đã thu hồi"} quyền soát vé sự kiện #${eventId} cho ${TC.utils.shortAddr(staff)}.`);
+      TC.notifyChange();
+    } catch (err) {
+      console.error(err);
+      showStatus(staffStatus, "danger", escapeHtml(txError(err)));
+    } finally {
+      buttons.forEach((b) => (b.disabled = false));
+    }
+  });
+
+  document.getElementById("staff-check-btn").addEventListener("click", async () => {
+    const { contract } = TC.state;
+    const staff = staffForm.staff.value.trim();
+    if (!contract || !staffSelect.value || !ethers.isAddress(staff)) {
+      return showStatus(staffStatus, "warning", "Chọn sự kiện và nhập địa chỉ ví hợp lệ.");
+    }
+    const ok = await contract.isStaff(staffSelect.value, staff);
+    showStatus(staffStatus, ok ? "success" : "warning",
+      ok ? "Ví này đang có quyền soát vé." : "Ví này chưa có quyền soát vé.");
+  });
+
+  // ------------------------------------------------------------------
+  // Danh sách sự kiện của ví đang kết nối (để chọn khi cấp quyền)
+  // ------------------------------------------------------------------
+  async function loadMyEvents() {
+    const { contract, account } = TC.state;
+    const count = Number(await contract.eventCount());
+    const list = [];
+    for (let id = 1; id <= count; id++) {
+      const ev = await contract.getEventInfo(id);
+      if (ev.organizer.toLowerCase() === account.toLowerCase()) list.push({ id, ev });
+    }
+    return list;
+  }
+
+  async function render() {
+    const { contract, account } = TC.state;
+    if (!contract) {
+      staffSelect.innerHTML = "";
+      return;
+    }
+
+    const isOrganizer = await contract.isOrganizer(account);
+    form.querySelector("button").disabled = !isOrganizer;
+    if (!isOrganizer) {
+      showStatus(createStatus, "warning", "Ví này chưa được cấp quyền ban tổ chức nên chưa tạo được sự kiện.");
+    } else if (createStatus.textContent.includes("chưa được cấp quyền")) {
+      showStatus(createStatus, "", "");
+    }
+
+    const events = await loadMyEvents();
+    staffSelect.innerHTML = events
+      .map(({ id, ev }) => `<option value="${id}">#${id} – ${escapeHtml(ev.name)}</option>`)
+      .join("");
+  }
+
+  TC.onRefresh(() => render().catch(console.error));
+  render().catch(console.error);
 })();
