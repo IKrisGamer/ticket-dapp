@@ -64,4 +64,13 @@ abstract contract TicketSale is EventManager, ITicketSale {
         });
         _ownedTickets[msg.sender].push(ticketId);
     }
+
+    // ------------------------------------------------------------------
+    // So huu ve
+    // ------------------------------------------------------------------
+
+    /// @inheritdoc ITicketSale
+    function transferTicket(uint256, address) external pure {
+        revert TransferNotAllowed();
+    }
 }
