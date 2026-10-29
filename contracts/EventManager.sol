@@ -35,6 +35,23 @@ contract EventManager {
     
     /// @notice eventId => address => co quyen soat ve hay khong.
     mapping(uint256 => mapping(address => bool)) public isStaff;
+    
+    // ------------------------------------------------------------------
+    // Events
+    // ------------------------------------------------------------------
+
+    event OrganizerUpdated(address indexed account, bool allowed);
+    event EventCreated(
+        uint256 indexed eventId,
+        address indexed organizer,
+        string name,
+        uint256 price,
+        uint32 maxTickets,
+        uint64 startTime
+    );
+    event StaffUpdated(uint256 indexed eventId, address indexed staff, bool allowed);
+    event SaleToggled(uint256 indexed eventId, bool open);
+
     // ------------------------------------------------------------------
     // Errors
     // ------------------------------------------------------------------
@@ -76,6 +93,7 @@ contract EventManager {
     constructor() {
         owner = msg.sender;
         isOrganizer[msg.sender] = true;
+        emit OrganizerUpdated(msg.sender, true);
     }
 
     // ------------------------------------------------------------------
@@ -86,6 +104,7 @@ contract EventManager {
     function setOrganizer(address account, bool allowed) external onlyOwner {
         if (account == address(0)) revert ZeroAddress();
         isOrganizer[account] = allowed;
+        emit OrganizerUpdated(account, allowed);
     }
 
     // ------------------------------------------------------------------
@@ -116,12 +135,15 @@ contract EventManager {
             ticketsSold: 0,
             saleOpen: true
         });
+        
+        emit EventCreated(eventId, msg.sender, name, price, maxTickets, startTime);
     }
     
     /// @notice Cap hoac thu quyen soat ve cho mot vi. Chi ban to chuc cua su kien.
     function setStaff(uint256 eventId, address staff, bool allowed) external onlyOrganizer(eventId) {
         if (staff == address(0)) revert ZeroAddress();
         isStaff[eventId][staff] = allowed;
+        emit StaffUpdated(eventId, staff, allowed);
     }
     
     /// @notice Mo hoac dong ban ve. Chi ban to chuc cua su kien.
@@ -129,6 +151,7 @@ contract EventManager {
     function toggleSale(uint256 eventId) public virtual onlyOrganizer(eventId) {
         Event storage e = _events[eventId];
         e.saleOpen = !e.saleOpen;
+        emit SaleToggled(eventId, e.saleOpen);
     }
     /// @notice Lay thong tin mot su kien.
     function getEventInfo(uint256 eventId) external view eventExists(eventId) returns (Event memory) {
