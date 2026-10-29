@@ -7,7 +7,7 @@ import "./interfaces/ITicketSale.sol";
 /// @title TicketSale
 /// @notice Ban ve gioi han so luong, toi da 2 ve moi vi moi su kien (phan B).
 /// @dev Tien ve duoc giu trong contract de TicketCheckIn hoan tien khi su kien bi huy.
-abstract contract TicketSale is EventManager, ITicketSale {
+contract TicketSale is EventManager, ITicketSale {
     // ------------------------------------------------------------------
     // Du lieu
     // ------------------------------------------------------------------
@@ -63,6 +63,8 @@ abstract contract TicketSale is EventManager, ITicketSale {
             purchasedAt: uint64(block.timestamp)
         });
         _ownedTickets[msg.sender].push(ticketId);
+
+        emit TicketPurchased(ticketId, eventId, msg.sender, msg.value);
     }
 
     // ------------------------------------------------------------------
@@ -72,5 +74,20 @@ abstract contract TicketSale is EventManager, ITicketSale {
     /// @inheritdoc ITicketSale
     function transferTicket(uint256, address) external pure {
         revert TransferNotAllowed();
+    }
+
+    /// @inheritdoc ITicketSale
+    function getMyTickets() external view returns (uint256[] memory) {
+        return _ownedTickets[msg.sender];
+    }
+
+    /// @inheritdoc ITicketSale
+    function getTicketsOf(address account) external view returns (uint256[] memory) {
+        return _ownedTickets[account];
+    }
+
+    /// @dev Ve co ton tai tren chuoi hay khong. TicketCheckIn dung ham nay.
+    function _ticketExists(uint256 ticketId) internal view returns (bool) {
+        return ticketId != 0 && ticketId <= ticketCount;
     }
 }
