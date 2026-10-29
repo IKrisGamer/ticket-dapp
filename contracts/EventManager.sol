@@ -32,7 +32,9 @@ contract EventManager {
 
     /// @notice address => co quyen tao su kien hay khong.
     mapping(address => bool) public isOrganizer;
-
+    
+    /// @notice eventId => address => co quyen soat ve hay khong.
+    mapping(uint256 => mapping(address => bool)) public isStaff;
     // ------------------------------------------------------------------
     // Errors
     // ------------------------------------------------------------------
@@ -40,6 +42,7 @@ contract EventManager {
     error NotOwner();
     error NotOrganizerRole();
     error NotEventOrganizer(uint256 eventId);
+    error NotStaff(uint256 eventId);
     error EventNotFound(uint256 eventId);
     error InvalidEventParams();
     error ZeroAddress();
@@ -64,7 +67,12 @@ contract EventManager {
         if (_events[eventId].organizer != msg.sender) revert NotEventOrganizer(eventId);
         _;
     }
-
+    
+    /// @dev Chi nhan vien duoc cap quyen soat ve cho su kien nay.
+    modifier onlyStaff(uint256 eventId) {
+        if (!isStaff[eventId][msg.sender]) revert NotStaff(eventId);
+        _;
+    }
     constructor() {
         owner = msg.sender;
         isOrganizer[msg.sender] = true;
@@ -109,7 +117,12 @@ contract EventManager {
             saleOpen: true
         });
     }
-
+    
+    /// @notice Cap hoac thu quyen soat ve cho mot vi. Chi ban to chuc cua su kien.
+    function setStaff(uint256 eventId, address staff, bool allowed) external onlyOrganizer(eventId) {
+        if (staff == address(0)) revert ZeroAddress();
+        isStaff[eventId][staff] = allowed;
+    }
     /// @notice Lay thong tin mot su kien.
     function getEventInfo(uint256 eventId) external view eventExists(eventId) returns (Event memory) {
         return _events[eventId];
