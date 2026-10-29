@@ -112,4 +112,52 @@ describe("EventManager", function () {
         .to.be.revertedWithCustomError(manager, "NotEventOrganizer");
     });
   });
+  
+  describe("setStaff", function () {
+    it("ban to chuc cap quyen soat ve", async function () {
+      const { manager, organizer, staff, eventId } = await loadFixture(eventFixture);
+
+      await expect(manager.connect(organizer).setStaff(eventId, staff.address, true))
+        .to.emit(manager, "StaffUpdated")
+        .withArgs(eventId, staff.address, true);
+      expect(await manager.isStaff(eventId, staff.address)).to.equal(true);
+    });
+
+    it("ban to chuc thu hoi quyen soat ve", async function () {
+      const { manager, organizer, staff, eventId } = await loadFixture(eventFixture);
+      await manager.connect(organizer).setStaff(eventId, staff.address, true);
+
+      await expect(manager.connect(organizer).setStaff(eventId, staff.address, false))
+        .to.emit(manager, "StaffUpdated")
+        .withArgs(eventId, staff.address, false);
+      expect(await manager.isStaff(eventId, staff.address)).to.equal(false);
+    });
+
+    it("quyen soat ve chi ap dung cho dung su kien", async function () {
+      const { manager, organizer, staff, eventId, startTime } = await loadFixture(eventFixture);
+      await manager.connect(organizer).createEvent("Talk", "HCM", startTime, PRICE, 10);
+      await manager.connect(organizer).setStaff(eventId, staff.address, true);
+
+      expect(await manager.isStaff(eventId, staff.address)).to.equal(true);
+      expect(await manager.isStaff(2, staff.address)).to.equal(false);
+    });
+
+    it("chan nguoi khong phai ban to chuc cap quyen", async function () {
+      const { manager, staff, stranger, eventId } = await loadFixture(eventFixture);
+      await expect(manager.connect(stranger).setStaff(eventId, staff.address, true))
+        .to.be.revertedWithCustomError(manager, "NotEventOrganizer")
+        .withArgs(eventId);
+      await expect(manager.connect(staff).setStaff(eventId, stranger.address, true))
+        .to.be.revertedWithCustomError(manager, "NotEventOrganizer");
+    });
+
+    it("chan dia chi 0 va su kien khong ton tai", async function () {
+      const { manager, organizer, staff, eventId } = await loadFixture(eventFixture);
+      await expect(manager.connect(organizer).setStaff(eventId, ethers.ZeroAddress, true))
+        .to.be.revertedWithCustomError(manager, "ZeroAddress");
+      await expect(manager.connect(organizer).setStaff(42, staff.address, true))
+        .to.be.revertedWithCustomError(manager, "EventNotFound")
+        .withArgs(42n);
+    });
+  });
 });
