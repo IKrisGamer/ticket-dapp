@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import "./EventManager.sol";
 import "./interfaces/ITicketSale.sol";
 
 /// @title TicketSale
 /// @notice Ban ve (phan B).
-/// @dev Tuan 1: chi khai bao du lieu ve. Tuan 2 se ke thua EventManager (A)
-///      va trien khai cac ham trong ITicketSale.
-abstract contract TicketSale is ITicketSale {
+/// @dev Tien ve duoc giu trong contract de TicketCheckIn hoan tien khi su kien bi huy.
+abstract contract TicketSale is EventManager, ITicketSale {
     // ------------------------------------------------------------------
     // Du lieu
     // ------------------------------------------------------------------
@@ -26,4 +26,31 @@ abstract contract TicketSale is ITicketSale {
 
     /// @dev vi => danh sach ma ve.
     mapping(address => uint256[]) internal _ownedTickets;
+
+    // ------------------------------------------------------------------
+    // Mua ve
+    // ------------------------------------------------------------------
+
+    /// @inheritdoc ITicketSale
+    function buyTicket(uint256 eventId)
+        external
+        payable
+        eventExists(eventId)
+        returns (uint256 ticketId)
+    {
+        Event storage e = _events[eventId];
+
+        if (!e.saleOpen) revert SaleClosed(eventId);
+        if (msg.value != e.price) revert IncorrectPayment(e.price, msg.value);
+
+        e.ticketsSold += 1;
+
+        ticketId = ++ticketCount;
+        tickets[ticketId] = Ticket({
+            eventId: eventId,
+            owner: msg.sender,
+            purchasedAt: uint64(block.timestamp)
+        });
+        _ownedTickets[msg.sender].push(ticketId);
+    }
 }
