@@ -123,6 +123,13 @@ contract EventManager {
         if (staff == address(0)) revert ZeroAddress();
         isStaff[eventId][staff] = allowed;
     }
+    
+    /// @notice Mo hoac dong ban ve. Chi ban to chuc cua su kien.
+    /// @dev virtual de TicketCheckIn chan mo lai ban ve khi su kien da huy.
+    function toggleSale(uint256 eventId) public virtual onlyOrganizer(eventId) {
+        Event storage e = _events[eventId];
+        e.saleOpen = !e.saleOpen;
+    }
     /// @notice Lay thong tin mot su kien.
     function getEventInfo(uint256 eventId) external view eventExists(eventId) returns (Event memory) {
         return _events[eventId];
