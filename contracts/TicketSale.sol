@@ -5,7 +5,7 @@ import "./EventManager.sol";
 import "./interfaces/ITicketSale.sol";
 
 /// @title TicketSale
-/// @notice Ban ve (phan B).
+/// @notice Ban ve gioi han so luong (phan B).
 /// @dev Tien ve duoc giu trong contract de TicketCheckIn hoan tien khi su kien bi huy.
 abstract contract TicketSale is EventManager, ITicketSale {
     // ------------------------------------------------------------------
@@ -42,6 +42,7 @@ abstract contract TicketSale is EventManager, ITicketSale {
 
         if (!e.saleOpen) revert SaleClosed(eventId);
         if (msg.value != e.price) revert IncorrectPayment(e.price, msg.value);
+        if (e.ticketsSold >= e.maxTickets) revert SoldOut(eventId);
 
         e.ticketsSold += 1;
 
