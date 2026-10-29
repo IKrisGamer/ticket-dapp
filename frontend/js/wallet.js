@@ -121,6 +121,11 @@
   TC.connect = connect;
   connectBtn.addEventListener("click", connect);
 
+  // Đổi tài khoản hoặc đổi mạng trên MetaMask -> tải lại trạng thái
+  if (window.ethereum) {
+    window.ethereum.on?.("accountsChanged", () => setup().catch(console.error));
+    window.ethereum.on?.("chainChanged", () => setup().catch(console.error));
+  }
   // Tự kết nối lại nếu trang đã được cấp quyền từ trước.
   // Chờ DOMContentLoaded để mọi file JS khác đã đăng ký ABI và giao diện.
   document.addEventListener("DOMContentLoaded", () => {
