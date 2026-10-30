@@ -1,12 +1,19 @@
 /* ==================================================================
    organizer.js – A
-   Tab Ban tổ chức: tạo sự kiện, quản lý nhân viên soát vé.
+   Tab Ban tổ chức: tạo sự kiện, quản lý nhân viên soát vé, thống kê.
    ================================================================== */
 (function () {
-  const { escapeHtml, showStatus, txError } = TC.utils;
+  const { escapeHtml, formatEth, formatTime, showStatus, txError } = TC.utils;
+
+  // Đọc thêm số vé đã soát và trạng thái hủy từ phần C để làm thống kê
+  TC.abi.push(
+    "function checkInCount(uint256) view returns (uint256)",
+    "function isCancelled(uint256) view returns (bool)"
+  );
 
   const createArea = document.getElementById("create-event-area");
   const staffArea = document.getElementById("staff-area");
+  const statsArea = document.getElementById("stats-area");
 
   // ------------------------------------------------------------------
   // Form tạo sự kiện
@@ -133,7 +140,7 @@
   });
 
   // ------------------------------------------------------------------
-  // Danh sách sự kiện của ví đang kết nối (để chọn khi cấp quyền)
+  // Thống kê các sự kiện của ví đang kết nối
   // ------------------------------------------------------------------
   async function loadMyEvents() {
     const { contract, account } = TC.state;
@@ -141,7 +148,9 @@
     const list = [];
     for (let id = 1; id <= count; id++) {
       const ev = await contract.getEventInfo(id);
-      if (ev.organizer.toLowerCase() === account.toLowerCase()) list.push({ id, ev });
+      if (ev.organizer.toLowerCase() !== account.toLowerCase()) continue;
+      const [used, cancelled] = await Promise.all([contract.checkInCount(id), contract.isCancelled(id)]);
+      list.push({ id, ev, used, cancelled });
     }
     return list;
   }
@@ -149,6 +158,7 @@
   async function render() {
     const { contract, account } = TC.state;
     if (!contract) {
+      statsArea.innerHTML = `<p class="muted">Kết nối ví để xem sự kiện của bạn.</p>`;
       staffSelect.innerHTML = "";
       return;
     }
@@ -165,6 +175,55 @@
     staffSelect.innerHTML = events
       .map(({ id, ev }) => `<option value="${id}">#${id} – ${escapeHtml(ev.name)}</option>`)
       .join("");
+
+    if (events.length === 0) {
+      statsArea.innerHTML = `<p class="muted">Bạn chưa tạo sự kiện nào.</p>`;
+      return;
+    }
+
+    statsArea.innerHTML = `
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>#</th><th>Sự kiện</th><th>Bắt đầu</th><th>Giá</th><th>Đã bán</th><th>Đã soát</th><th>Trạng thái</th><th></th></tr>
+          </thead>
+          <tbody>
+            ${events.map(({ id, ev, used, cancelled }) => `
+              <tr>
+                <td>${id}</td>
+                <td><strong>${escapeHtml(ev.name)}</strong><br><span class="small muted">${escapeHtml(ev.venue)}</span></td>
+                <td class="small">${formatTime(ev.startTime)}</td>
+                <td>${formatEth(ev.price)}</td>
+                <td>${ev.ticketsSold} / ${ev.maxTickets}</td>
+                <td>${used}</td>
+                <td>${cancelled
+                  ? `<span class="badge badge-danger">Đã hủy</span>`
+                  : ev.saleOpen
+                    ? `<span class="badge badge-success">Đang bán</span>`
+                    : `<span class="badge badge-muted">Tạm dừng</span>`}</td>
+                <td>${cancelled ? "" : `<button class="btn btn-sm" data-toggle="${id}">${ev.saleOpen ? "Dừng bán" : "Mở bán"}</button>`}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div id="stats-status"></div>
+    `;
+
+    statsArea.querySelectorAll("[data-toggle]").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        const status = document.getElementById("stats-status");
+        btn.disabled = true;
+        try {
+          const tx = await TC.state.contract.toggleSale(btn.dataset.toggle);
+          await tx.wait();
+          TC.notifyChange();
+        } catch (err) {
+          console.error(err);
+          showStatus(status, "danger", escapeHtml(txError(err)));
+          btn.disabled = false;
+        }
+      })
+    );
   }
 
   TC.onRefresh(() => render().catch(console.error));
