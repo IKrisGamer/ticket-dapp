@@ -91,4 +91,53 @@ describe("TicketSale", function () {
       expect(await sale.MAX_PER_WALLET()).to.equal(2n);
     });
   });
+
+  describe("thanh toan", function () {
+    it("chan khi gui thieu tien", async function () {
+      const { sale, buyer } = await loadFixture(deployFixture);
+      const less = PRICE - 1n;
+      await expect(sale.connect(buyer).buyTicket(1, { value: less }))
+        .to.be.revertedWithCustomError(sale, "IncorrectPayment")
+        .withArgs(PRICE, less);
+    });
+
+    it("chan khi gui thua tien", async function () {
+      const { sale, buyer } = await loadFixture(deployFixture);
+      const more = PRICE * 2n;
+      await expect(sale.connect(buyer).buyTicket(1, { value: more }))
+        .to.be.revertedWithCustomError(sale, "IncorrectPayment")
+        .withArgs(PRICE, more);
+    });
+
+    it("tien ve chuyen tu nguoi mua vao contract", async function () {
+      const { sale, buyer } = await loadFixture(deployFixture);
+      await expect(sale.connect(buyer).buyTicket(1, { value: PRICE }))
+        .to.changeEtherBalances([buyer, sale], [-PRICE, PRICE]);
+    });
+
+    it("mua that bai thi khong tinh vao so ve da ban", async function () {
+      const { sale, buyer } = await loadFixture(deployFixture);
+      await expect(sale.connect(buyer).buyTicket(1, { value: 0 })).to.be.reverted;
+      expect(await sale.ticketCount()).to.equal(0n);
+      expect(await sale.purchasedCount(1, buyer.address)).to.equal(0n);
+    });
+  });
+
+  describe("khong chuyen nhuong", function () {
+    it("transferTicket luon bi chan", async function () {
+      const { sale, buyer, buyer2 } = await loadFixture(deployFixture);
+      await sale.connect(buyer).buyTicket(1, { value: PRICE });
+
+      await expect(sale.connect(buyer).transferTicket(1, buyer2.address))
+        .to.be.revertedWithCustomError(sale, "TransferNotAllowed");
+      expect((await sale.tickets(1)).owner).to.equal(buyer.address);
+    });
+
+    it("contract khong co ham chuyen nhuong kieu ERC-721", async function () {
+      const { sale } = await loadFixture(deployFixture);
+      expect(sale.interface.getFunction("transferFrom")).to.equal(null);
+      expect(sale.interface.getFunction("safeTransferFrom")).to.equal(null);
+      expect(sale.interface.getFunction("approve")).to.equal(null);
+    });
+  });
 });
