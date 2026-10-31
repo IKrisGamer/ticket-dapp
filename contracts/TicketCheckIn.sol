@@ -51,4 +51,24 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
         Ticket storage t = tickets[ticketId];
         return (true, isUsed[ticketId], isCancelled[t.eventId], t.eventId, t.owner);
     }
+
+    
+    // ------------------------------------------------------------------
+    // Huy su kien va hoan tien
+    // ------------------------------------------------------------------
+
+    /// @inheritdoc ITicketCheckIn
+    function cancelEvent(uint256 eventId) external onlyOrganizer(eventId) {
+        if (isCancelled[eventId]) revert EventIsCancelled(eventId);
+        if (checkInCount[eventId] > 0) revert EventHasCheckIns(eventId);
+
+        isCancelled[eventId] = true;
+        _events[eventId].saleOpen = false;
+    }
+
+    /// @notice Khong cho mo lai ban ve cua su kien da huy.
+    function toggleSale(uint256 eventId) public override {
+        if (isCancelled[eventId]) revert EventIsCancelled(eventId);
+        super.toggleSale(eventId);
+    }
 }
