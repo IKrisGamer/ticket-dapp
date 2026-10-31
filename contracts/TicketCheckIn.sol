@@ -1,12 +1,119 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.28;
 
+import "./TicketSale.sol";
 import "./interfaces/ITicketCheckIn.sol";
 
-abstract contract TicketCheckIn is ITicketCheckIn {
+/// @title TicketCheckIn
+/// @notice Soat ve mot lan duy nhat, huy su kien, hoan tien va rut doanh thu (phan C).
+/// @dev Day la contract cuoi cung trong chuoi ke thua va la contract duoc deploy:
+///      EventManager (A) -> TicketSale (B) -> TicketCheckIn (C).
+abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
     mapping(uint256 => bool) public isUsed; // đã soát chưa (ticketId)
     mapping(uint256 => uint256) public usedAt; // thời điểm soát (ticketId)
     mapping(uint256 => uint256) public checkInCount; // số vé đã soát (eventId)
     mapping(uint256 => bool) public isCancelled; // đã hủy chưa (eventId)
     mapping(uint256 => bool) public isRefunded; // đã hoàn tiền chưa (ticketId)
+
+    /// @notice eventId => tong so tien ban to chuc da rut (wei).
+    mapping(uint256 => uint256) public withdrawnAmount;
+    
+
+    
+    // ------------------------------------------------------------------
+    // Soat ve
+    // ------------------------------------------------------------------
+
+    /// @inheritdoc ITicketCheckIn
+    function checkIn(uint256 eventId, uint256 ticketId) external onlyStaff(eventId) {
+        if (!_ticketExists(ticketId)) revert TicketNotFound(ticketId);
+        if (tickets[ticketId].eventId != eventId) revert WrongEvent(ticketId, eventId);
+        if (isCancelled[eventId]) revert EventIsCancelled(eventId);
+        if (isUsed[ticketId]) revert TicketAlreadyUsed(ticketId);
+
+        isUsed[ticketId] = true;
+        usedAt[ticketId] = block.timestamp;
+        checkInCount[eventId] += 1;
+        emit TicketUsed(ticketId, eventId, msg.sender, block.timestamp);
+    }
+
+    
+    /// @inheritdoc ITicketCheckIn
+    function verifyTicket(uint256 ticketId)
+        external
+        view
+        returns (
+            bool exists,
+            bool used,
+            bool cancelled,
+            uint256 eventId,
+            address owner
+        )
+    {
+        if (!_ticketExists(ticketId)) {
+            return (false, false, false, 0, address(0));
+        }
+        Ticket storage t = tickets[ticketId];
+        return (true, isUsed[ticketId], isCancelled[t.eventId], t.eventId, t.owner);
+    }
+
+    
+    // ------------------------------------------------------------------
+    // Huy su kien va hoan tien
+    // ------------------------------------------------------------------
+
+    /// @inheritdoc ITicketCheckIn
+    function cancelEvent(uint256 eventId) external onlyOrganizer(eventId) {
+        if (isCancelled[eventId]) revert EventIsCancelled(eventId);
+        if (checkInCount[eventId] > 0) revert EventHasCheckIns(eventId);
+
+        isCancelled[eventId] = true;
+        _events[eventId].saleOpen = false;
+        emit EventCancelled(eventId, block.timestamp);
+    }
+
+    /// @notice Khong cho mo lai ban ve cua su kien da huy.
+    function toggleSale(uint256 eventId) public override {
+        if (isCancelled[eventId]) revert EventIsCancelled(eventId);
+        super.toggleSale(eventId);
+    }
+
+    
+    /// @inheritdoc ITicketCheckIn
+    /// @dev Checks-effects-interactions: danh dau da hoan tien TRUOC khi chuyen ETH
+    ///      de chan tan cong reentrancy.
+    function claimRefund(uint256 ticketId) external {
+        // Checks
+        if (!_ticketExists(ticketId)) revert TicketNotFound(ticketId);
+        Ticket storage t = tickets[ticketId];
+        if (t.owner != msg.sender) revert NotTicketOwner(ticketId);
+        if (!isCancelled[t.eventId]) revert EventNotCancelled(t.eventId);
+        if (isRefunded[ticketId]) revert AlreadyRefunded(ticketId);
+
+        // Effects
+        isRefunded[ticketId] = true;
+        uint256 amount = _events[t.eventId].price;
+
+        // Interactions
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        if (!ok) revert RefundFailed(ticketId);
+        emit Refunded(ticketId, msg.sender, amount);
+    }
+
+    /// @inheritdoc ITicketCheckIn
+    function withdrawRevenue(uint256 eventId) external onlyOrganizer(eventId) {
+        // Da co ve duoc soat => su kien khong the huy => khong con nghia vu hoan tien.
+        if (checkInCount[eventId] == 0) revert WithdrawNotAllowed(eventId);
+
+        Event storage e = _events[eventId];
+        uint256 amount = e.price * e.ticketsSold - withdrawnAmount[eventId];
+        if (amount == 0) revert NothingToWithdraw(eventId);
+
+        withdrawnAmount[eventId] += amount;
+
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        if (!ok) revert WithdrawFailed(eventId);
+
+        emit RevenueWithdrawn(eventId, msg.sender, amount);
+    }
 }
