@@ -5,7 +5,7 @@ import "./TicketSale.sol";
 import "./interfaces/ITicketCheckIn.sol";
 
 /// @title TicketCheckIn
-/// @notice Soat ve mot lan duy nhat, huy su kien va hoan tien (phan C).
+/// @notice Soat ve mot lan duy nhat, huy su kien, hoan tien va rut doanh thu (phan C).
 /// @dev Day la contract cuoi cung trong chuoi ke thua va la contract duoc deploy:
 ///      EventManager (A) -> TicketSale (B) -> TicketCheckIn (C).
 abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
@@ -14,6 +14,10 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
     mapping(uint256 => uint256) public checkInCount; // số vé đã soát (eventId)
     mapping(uint256 => bool) public isCancelled; // đã hủy chưa (eventId)
     mapping(uint256 => bool) public isRefunded; // đã hoàn tiền chưa (ticketId)
+
+    /// @notice eventId => tong so tien ban to chuc da rut (wei).
+    mapping(uint256 => uint256) public withdrawnAmount;
+    
 
     
     // ------------------------------------------------------------------
@@ -93,5 +97,20 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
         if (!ok) revert RefundFailed(ticketId);
     }
 
-    
+    /// @inheritdoc ITicketCheckIn
+    function withdrawRevenue(uint256 eventId) external onlyOrganizer(eventId) {
+        // Da co ve duoc soat => su kien khong the huy => khong con nghia vu hoan tien.
+        if (checkInCount[eventId] == 0) revert WithdrawNotAllowed(eventId);
+
+        Event storage e = _events[eventId];
+        uint256 amount = e.price * e.ticketsSold - withdrawnAmount[eventId];
+        if (amount == 0) revert NothingToWithdraw(eventId);
+
+        withdrawnAmount[eventId] += amount;
+
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        if (!ok) revert WithdrawFailed(eventId);
+
+        emit RevenueWithdrawn(eventId, msg.sender, amount);
+    }
 }
