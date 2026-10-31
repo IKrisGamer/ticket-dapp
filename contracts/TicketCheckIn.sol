@@ -71,4 +71,27 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
         if (isCancelled[eventId]) revert EventIsCancelled(eventId);
         super.toggleSale(eventId);
     }
+
+    
+    /// @inheritdoc ITicketCheckIn
+    /// @dev Checks-effects-interactions: danh dau da hoan tien TRUOC khi chuyen ETH
+    ///      de chan tan cong reentrancy.
+    function claimRefund(uint256 ticketId) external {
+        // Checks
+        if (!_ticketExists(ticketId)) revert TicketNotFound(ticketId);
+        Ticket storage t = tickets[ticketId];
+        if (t.owner != msg.sender) revert NotTicketOwner(ticketId);
+        if (!isCancelled[t.eventId]) revert EventNotCancelled(t.eventId);
+        if (isRefunded[ticketId]) revert AlreadyRefunded(ticketId);
+
+        // Effects
+        isRefunded[ticketId] = true;
+        uint256 amount = _events[t.eventId].price;
+
+        // Interactions
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        if (!ok) revert RefundFailed(ticketId);
+    }
+
+    
 }
