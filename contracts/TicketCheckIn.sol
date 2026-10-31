@@ -31,4 +31,24 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
         usedAt[ticketId] = block.timestamp;
         checkInCount[eventId] += 1;
     }
+
+    
+    /// @inheritdoc ITicketCheckIn
+    function verifyTicket(uint256 ticketId)
+        external
+        view
+        returns (
+            bool exists,
+            bool used,
+            bool cancelled,
+            uint256 eventId,
+            address owner
+        )
+    {
+        if (!_ticketExists(ticketId)) {
+            return (false, false, false, 0, address(0));
+        }
+        Ticket storage t = tickets[ticketId];
+        return (true, isUsed[ticketId], isCancelled[t.eventId], t.eventId, t.owner);
+    }
 }
