@@ -34,6 +34,7 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
         isUsed[ticketId] = true;
         usedAt[ticketId] = block.timestamp;
         checkInCount[eventId] += 1;
+        emit TicketUsed(ticketId, eventId, msg.sender, block.timestamp);
     }
 
     
@@ -68,6 +69,7 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
 
         isCancelled[eventId] = true;
         _events[eventId].saleOpen = false;
+        emit EventCancelled(eventId, block.timestamp);
     }
 
     /// @notice Khong cho mo lai ban ve cua su kien da huy.
@@ -95,6 +97,7 @@ abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
         // Interactions
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
         if (!ok) revert RefundFailed(ticketId);
+        emit Refunded(ticketId, msg.sender, amount);
     }
 
     /// @inheritdoc ITicketCheckIn
