@@ -87,4 +87,57 @@ describe("TicketCheckIn - soat ve", function () {
       expect(await app.isUsed(2)).to.equal(false);
     });
   });
+
+  describe("phan quyen soat ve", function () {
+    it("chan vi khong phai nhan vien", async function () {
+      const { app, stranger, buyer } = await loadFixture(deployFixture);
+      await expect(app.connect(stranger).checkIn(1, 1))
+        .to.be.revertedWithCustomError(app, "NotStaff")
+        .withArgs(1n);
+      // chu ve cung khong tu soat ve cho minh duoc
+      await expect(app.connect(buyer).checkIn(1, 1))
+        .to.be.revertedWithCustomError(app, "NotStaff");
+    });
+
+    it("ban to chuc khong tu dong co quyen soat ve", async function () {
+      const { app, organizer } = await loadFixture(deployFixture);
+      await expect(app.connect(organizer).checkIn(1, 1))
+        .to.be.revertedWithCustomError(app, "NotStaff");
+    });
+
+    it("nhan vien su kien nay khong soat duoc su kien khac", async function () {
+      const { app, staff } = await loadFixture(deployFixture);
+      await expect(app.connect(staff).checkIn(2, 2))
+        .to.be.revertedWithCustomError(app, "NotStaff")
+        .withArgs(2n);
+    });
+
+    it("nhan vien bi thu quyen thi khong soat duoc nua", async function () {
+      const { app, staff } = await loadFixture(deployFixture);
+      await app.setStaff(1, staff.address, false);
+      await expect(app.connect(staff).checkIn(1, 1))
+        .to.be.revertedWithCustomError(app, "NotStaff");
+    });
+  });
+
+  describe("su kien da huy", function () {
+    it("chan soat ve cua su kien da huy", async function () {
+      const { app, staff } = await loadFixture(deployFixture);
+      await app.cancelEvent(1);
+
+      await expect(app.connect(staff).checkIn(1, 1))
+        .to.be.revertedWithCustomError(app, "EventIsCancelled")
+        .withArgs(1n);
+      expect((await app.verifyTicket(1)).cancelled).to.equal(true);
+    });
+  });
+
+  describe("event", function () {
+    it("phat TicketUsed khi soat ve", async function () {
+      const { app, staff } = await loadFixture(deployFixture);
+      await expect(app.connect(staff).checkIn(1, 1))
+        .to.emit(app, "TicketUsed")
+        .withArgs(1n, 1n, staff.address, (ts) => ts > 0n);
+    });
+  });
 });
