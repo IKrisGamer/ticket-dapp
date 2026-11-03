@@ -8,7 +8,7 @@ import "./interfaces/ITicketCheckIn.sol";
 /// @notice Soat ve mot lan duy nhat, huy su kien, hoan tien va rut doanh thu (phan C).
 /// @dev Day la contract cuoi cung trong chuoi ke thua va la contract duoc deploy:
 ///      EventManager (A) -> TicketSale (B) -> TicketCheckIn (C).
-abstract contract TicketCheckIn is TicketSale, ITicketCheckIn {
+contract TicketCheckIn is TicketSale, ITicketCheckIn {
     mapping(uint256 => bool) public isUsed; // đã soát chưa (ticketId)
     mapping(uint256 => uint256) public usedAt; // thời điểm soát (ticketId)
     mapping(uint256 => uint256) public checkInCount; // số vé đã soát (eventId)
