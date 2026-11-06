@@ -3,7 +3,7 @@
    Tab Người mua: danh sách sự kiện, mua vé, vé của tôi, QR đã ký.
    ================================================================== */
 (function () {
-  const { escapeHtml, formatEth, formatTime, showStatus } = TC.utils;
+  const { escapeHtml, formatEth, formatTime, showStatus, txError } = TC.utils;
 
   // ABI – TicketSale (B)
   TC.abi.push(
@@ -38,6 +38,12 @@
   const buyStatus = document.createElement("div");
   buyStatus.id = "buy-status";
   eventList.after(buyStatus);
+
+  // Thông điệp được ký – PHẢI giống hệt staff.js của C
+  function qrMessage(ticketId, ts) {
+    const { chainId, deployment } = TC.state;
+    return `TicketChain:${chainId}:${deployment.address.toLowerCase()}:${ticketId}:${ts}`;
+  }
 
   // ------------------------------------------------------------------
   // Danh sách sự kiện
@@ -113,6 +119,7 @@
         : info.used
           ? `<span class="badge badge-muted">Đã sử dụng</span>`
           : `<span class="badge badge-success">Chưa sử dụng</span>`;
+      const canShow = !info.used && !info.cancelled;
       return `
         <div class="ticket-item">
           <div>
@@ -120,13 +127,88 @@
             <div class="small muted">${escapeHtml(ev.venue)} · ${formatTime(ev.startTime)}</div>
             <div>${badge}</div>
           </div>
+          ${canShow ? `<button class="btn" data-qr="${id}" data-event="${info.eventId}">Hiện QR</button>` : ""}
         </div>`;
-    }).join("");
+    }).join("") + `
+      <div id="qr-panel" class="qr-panel" hidden>
+        <div id="qr-code" class="qr-box"></div>
+        <div id="qr-info" class="small"></div>
+        <details class="small">
+          <summary>Nội dung QR (dán thủ công khi camera lỗi)</summary>
+          <textarea id="qr-text" readonly rows="3"></textarea>
+        </details>
+        <button class="btn" id="qr-close">Đóng QR</button>
+      </div>
+      <div id="qr-status"></div>`;
+
+    myTickets.querySelectorAll("[data-qr]").forEach((btn) =>
+      btn.addEventListener("click", () => openQr(btn.dataset.qr, btn.dataset.event))
+    );
+    document.getElementById("qr-close").addEventListener("click", closeQr);
+
+    // Giữ QR đang mở sau khi danh sách được vẽ lại
+    if (activeQr && ids.map(String).includes(String(activeQr.ticketId))) {
+      drawQr();
+    } else {
+      closeQr();
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // QR đã ký: chứng minh người cầm QR đang giữ ví chủ vé.
+  // QR chỉ có hiệu lực trong TC.config.qrTtlSeconds giây, nên ảnh chụp
+  // màn hình QR cũ sẽ bị nhân viên soát vé từ chối.
+  // ------------------------------------------------------------------
+  let activeQr = null;   // { ticketId, eventId, ts, sig }
+
+  async function signTicket(ticketId, eventId) {
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = await TC.state.signer.signMessage(qrMessage(ticketId, ts));
+    activeQr = { ticketId: String(ticketId), eventId: String(eventId), ts, sig };
+  }
+
+  async function openQr(ticketId, eventId) {
+    const status = document.getElementById("qr-status");
+    try {
+      showStatus(status, "warning", "Ký xác nhận trên MetaMask để tạo QR (không tốn phí).");
+      await signTicket(ticketId, eventId);
+      showStatus(status, "", "");
+      drawQr();
+    } catch (err) {
+      console.error(err);
+      showStatus(status, "danger", escapeHtml(txError(err)));
+    }
+  }
+
+  function drawQr() {
+    const panel = document.getElementById("qr-panel");
+    const box = document.getElementById("qr-code");
+    if (!panel || !activeQr) return;
+
+    const payload = JSON.stringify({ v: 1, t: activeQr.ticketId, e: activeQr.eventId, ts: activeQr.ts, s: activeQr.sig });
+    box.innerHTML = "";
+    new QRCode(box, { text: payload, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+    document.getElementById("qr-text").value = payload;
+    panel.hidden = false;
+    updateCountdown();
+  }
+
+  function updateCountdown() {
+    const info = document.getElementById("qr-info");
+    if (!info || !activeQr) return;
+    info.innerHTML = `Vé <strong>#${activeQr.ticketId}</strong> · QR có hiệu lực ${TC.config.qrTtlSeconds} giây.`;
+  }
+
+  function closeQr() {
+    activeQr = null;
+    const panel = document.getElementById("qr-panel");
+    if (panel) panel.hidden = true;
   }
 
   // ------------------------------------------------------------------
   async function render() {
     if (!TC.state.contract) {
+      closeQr();
       eventList.innerHTML = `<p class="muted">Kết nối ví để xem sự kiện đang mở bán.</p>`;
       myTickets.innerHTML = `<p class="muted">Kết nối ví để xem vé của bạn.</p>`;
       return;
