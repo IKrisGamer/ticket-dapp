@@ -3,7 +3,7 @@
    Tab Người mua: danh sách sự kiện, mua vé, vé của tôi, QR đã ký.
    ================================================================== */
 (function () {
-  const { escapeHtml, formatEth, formatTime } = TC.utils;
+  const { escapeHtml, formatEth, formatTime, showStatus } = TC.utils;
 
   // ABI – TicketSale (B)
   TC.abi.push(
@@ -33,6 +33,11 @@
 
   const eventList = document.getElementById("event-list");
 
+  // Ô trạng thái nằm ngoài danh sách để không bị xóa khi danh sách tải lại
+  const buyStatus = document.createElement("div");
+  buyStatus.id = "buy-status";
+  eventList.after(buyStatus);
+
   // ------------------------------------------------------------------
   // Danh sách sự kiện
   // ------------------------------------------------------------------
@@ -53,7 +58,8 @@
 
     eventList.innerHTML = items.map(({ id, ev }) => {
       const remaining = Number(ev.maxTickets) - Number(ev.ticketsSold);
-      const label = ev.saleOpen ? "Đang bán" : "Ngừng bán";
+      const disabled = !ev.saleOpen;
+      const label = ev.saleOpen ? "Mua vé" : "Ngừng bán";
 
       return `
         <div class="event-item">
@@ -62,9 +68,24 @@
             <div class="small muted">${escapeHtml(ev.venue)} · ${formatTime(ev.startTime)}</div>
             <div class="small">Giá <strong>${formatEth(ev.price)}</strong> · Còn <strong>${remaining}</strong>/${ev.maxTickets} vé</div>
           </div>
-          <span class="badge ${ev.saleOpen ? "badge-success" : "badge-muted"}">${label}</span>
+          <button class="btn btn-primary" data-buy="${id}" data-price="${ev.price}" ${disabled ? "disabled" : ""}>${label}</button>
         </div>`;
     }).join("");
+
+    eventList.querySelectorAll("[data-buy]").forEach((btn) => btn.addEventListener("click", () => buy(btn)));
+  }
+
+  async function buy(btn) {
+    const status = buyStatus;
+    const eventId = btn.dataset.buy;
+    btn.disabled = true;
+    btn.textContent = "Đang mua…";
+    showStatus(status, "warning", "Đang chờ xác nhận trên MetaMask…");
+    const tx = await TC.state.contract.buyTicket(eventId, { value: BigInt(btn.dataset.price) });
+    showStatus(status, "warning", "Đang ghi lên blockchain…");
+    await tx.wait();
+    showStatus(status, "success", `Mua vé sự kiện #${eventId} thành công. Vé đã nằm trong "Vé của tôi".`);
+    TC.notifyChange();
   }
 
   // ------------------------------------------------------------------
