@@ -85,14 +85,22 @@
   async function buy(btn) {
     const status = buyStatus;
     const eventId = btn.dataset.buy;
+    const original = btn.textContent;
     btn.disabled = true;
     btn.textContent = "Đang mua…";
-    showStatus(status, "warning", "Đang chờ xác nhận trên MetaMask…");
-    const tx = await TC.state.contract.buyTicket(eventId, { value: BigInt(btn.dataset.price) });
-    showStatus(status, "warning", "Đang ghi lên blockchain…");
-    await tx.wait();
-    showStatus(status, "success", `Mua vé sự kiện #${eventId} thành công. Vé đã nằm trong "Vé của tôi".`);
-    TC.notifyChange();
+    try {
+      showStatus(status, "warning", "Đang chờ xác nhận trên MetaMask…");
+      const tx = await TC.state.contract.buyTicket(eventId, { value: BigInt(btn.dataset.price) });
+      showStatus(status, "warning", "Đang ghi lên blockchain…");
+      await tx.wait();
+      showStatus(status, "success", `Mua vé sự kiện #${eventId} thành công. Vé đã nằm trong "Vé của tôi".`);
+      TC.notifyChange();
+    } catch (err) {
+      console.error(err);
+      showStatus(status, "danger", escapeHtml(txError(err)));
+      btn.disabled = false;
+      btn.textContent = original;
+    }
   }
 
   // ------------------------------------------------------------------
