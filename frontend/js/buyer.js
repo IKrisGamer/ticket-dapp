@@ -160,6 +160,8 @@
   // màn hình QR cũ sẽ bị nhân viên soát vé từ chối.
   // ------------------------------------------------------------------
   let activeQr = null;   // { ticketId, eventId, ts, sig }
+  let timer = null;
+  let signing = false;
 
   async function signTicket(ticketId, eventId) {
     const ts = Math.floor(Date.now() / 1000);
@@ -174,6 +176,7 @@
       await signTicket(ticketId, eventId);
       showStatus(status, "", "");
       drawQr();
+      startTimer();
     } catch (err) {
       console.error(err);
       showStatus(status, "danger", escapeHtml(txError(err)));
@@ -196,10 +199,36 @@
   function updateCountdown() {
     const info = document.getElementById("qr-info");
     if (!info || !activeQr) return;
-    info.innerHTML = `Vé <strong>#${activeQr.ticketId}</strong> · QR có hiệu lực ${TC.config.qrTtlSeconds} giây.`;
+    const left = activeQr.ts + TC.config.qrTtlSeconds - Math.floor(Date.now() / 1000);
+    info.innerHTML = `Vé <strong>#${activeQr.ticketId}</strong> · QR còn hiệu lực <strong>${Math.max(left, 0)}s</strong>, sau đó tự làm mới.`;
+    return left;
+  }
+
+  function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(async () => {
+      const left = updateCountdown();
+      if (left === undefined) return closeQr();
+      if (left > 0 || signing) return;
+
+      // Hết hạn: ký lại để có QR mới
+      signing = true;
+      try {
+        await signTicket(activeQr.ticketId, activeQr.eventId);
+        drawQr();
+      } catch (err) {
+        // Người dùng từ chối ký lại -> đóng QR
+        closeQr();
+        showStatus(document.getElementById("qr-status"), "warning", "QR đã hết hạn. Bấm “Hiện QR” để tạo lại.");
+      } finally {
+        signing = false;
+      }
+    }, 1000);
   }
 
   function closeQr() {
+    clearInterval(timer);
+    timer = null;
     activeQr = null;
     const panel = document.getElementById("qr-panel");
     if (panel) panel.hidden = true;
