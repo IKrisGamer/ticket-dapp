@@ -49,8 +49,9 @@
   // Danh sách sự kiện
   // ------------------------------------------------------------------
   async function renderEvents() {
-    const { contract } = TC.state;
+    const { contract, account } = TC.state;
     const count = Number(await contract.eventCount());
+    const maxPerWallet = Number(await contract.MAX_PER_WALLET());
 
     if (count === 0) {
       eventList.innerHTML = `<p class="muted">Chưa có sự kiện nào.</p>`;
@@ -59,21 +60,24 @@
 
     const items = [];
     for (let id = count; id >= 1; id--) {
-      const ev = await contract.getEventInfo(id);
-      items.push({ id, ev });
+      const [ev, bought] = await Promise.all([contract.getEventInfo(id), contract.purchasedCount(id, account)]);
+      items.push({ id, ev, bought: Number(bought) });
     }
 
-    eventList.innerHTML = items.map(({ id, ev }) => {
+    eventList.innerHTML = items.map(({ id, ev, bought }) => {
       const remaining = Number(ev.maxTickets) - Number(ev.ticketsSold);
-      const disabled = !ev.saleOpen;
-      const label = ev.saleOpen ? "Mua vé" : "Ngừng bán";
+      const soldOut = remaining <= 0;
+      const limitReached = bought >= maxPerWallet;
+      const disabled = !ev.saleOpen || soldOut || limitReached;
+      const label = !ev.saleOpen ? "Ngừng bán" : soldOut ? "Hết vé" : limitReached ? `Đã mua ${bought}/${maxPerWallet}` : "Mua vé";
 
       return `
         <div class="event-item">
           <div>
             <div class="event-name">#${id} · ${escapeHtml(ev.name)}</div>
             <div class="small muted">${escapeHtml(ev.venue)} · ${formatTime(ev.startTime)}</div>
-            <div class="small">Giá <strong>${formatEth(ev.price)}</strong> · Còn <strong>${remaining}</strong>/${ev.maxTickets} vé</div>
+            <div class="small">Giá <strong>${formatEth(ev.price)}</strong> · Còn <strong>${remaining}</strong>/${ev.maxTickets} vé
+              ${bought ? ` · Bạn đã mua ${bought}` : ""}</div>
           </div>
           <button class="btn btn-primary" data-buy="${id}" data-price="${ev.price}" ${disabled ? "disabled" : ""}>${label}</button>
         </div>`;
