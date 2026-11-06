@@ -32,6 +32,7 @@
   });
 
   const eventList = document.getElementById("event-list");
+  const myTickets = document.getElementById("my-tickets");
 
   // Ô trạng thái nằm ngoài danh sách để không bị xóa khi danh sách tải lại
   const buyStatus = document.createElement("div");
@@ -89,12 +90,48 @@
   }
 
   // ------------------------------------------------------------------
+  // Vé của tôi
+  // ------------------------------------------------------------------
+  async function renderMyTickets() {
+    const { contract } = TC.state;
+    const ids = [...(await contract.getMyTickets())];
+
+    if (ids.length === 0) {
+      myTickets.innerHTML = `<p class="muted">Bạn chưa có vé nào.</p>`;
+      return;
+    }
+
+    const rows = await Promise.all(ids.reverse().map(async (id) => {
+      const info = await contract.verifyTicket(id);
+      const ev = await contract.getEventInfo(info.eventId);
+      return { id, info, ev };
+    }));
+
+    myTickets.innerHTML = rows.map(({ id, info, ev }) => {
+      const badge = info.cancelled
+        ? `<span class="badge badge-danger">Sự kiện đã hủy</span>`
+        : info.used
+          ? `<span class="badge badge-muted">Đã sử dụng</span>`
+          : `<span class="badge badge-success">Chưa sử dụng</span>`;
+      return `
+        <div class="ticket-item">
+          <div>
+            <div class="event-name">Vé #${id} · ${escapeHtml(ev.name)}</div>
+            <div class="small muted">${escapeHtml(ev.venue)} · ${formatTime(ev.startTime)}</div>
+            <div>${badge}</div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  // ------------------------------------------------------------------
   async function render() {
     if (!TC.state.contract) {
       eventList.innerHTML = `<p class="muted">Kết nối ví để xem sự kiện đang mở bán.</p>`;
+      myTickets.innerHTML = `<p class="muted">Kết nối ví để xem vé của bạn.</p>`;
       return;
     }
-    await renderEvents();
+    await Promise.all([renderEvents(), renderMyTickets()]);
   }
 
   TC.onRefresh(() => render().catch(console.error));
