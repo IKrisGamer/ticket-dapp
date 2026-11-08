@@ -4,12 +4,12 @@ Tab Soát vé: quét QR, xác minh chữ ký + chủ vé + thời hạn, gọi
 checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai.
 */
 (function () {
-    const { escapeHtml } = TC.utils;
+    const { escapeHtml, shortAddr, formatTime } = TC.utils;
 
     // ABI - TicketCheckIn (C)
     TC.abi.push(
         "function checkIn(uint256 eventId, uint256 ticketId)",
-        "function verifyTicket(uint256 ticketId) view returns (bool exits, bool used, bool cancelled, uint256 eventId, address owner)",
+        "function verifyTicket(uint256 ticketId) view returns (bool exists, bool used, bool cancelled, uint256 eventId, address owner)",
         "function isUsed(uint256) view returns (bool)",
         "function usedAt(uint256) view returns (uint256)",
         "function checkInCount(uint256) view returns (uint256)",
@@ -56,8 +56,57 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
     }
 
     //Xử lí mã QR quét được
-    function handleScan(text) {
-        showResult("pending", `Đã đọc mã QR:<br><span class="small mono">${escapeHtml(text)}</span>`);
+    let busy = false;
+    async function handleScan(text) {
+        if (busy) return;
+        const { contract, chainId, deployment } = TC.state;
+        if (!contract) return showResult("warning", "Hãy kết nối ví nhân viên trước.");
+
+        const eventId = eventSelect.value;
+        if (!eventId) return showResult("warning","Ví của bạn không phải nhân viên soát vé của sự kiện nào.");
+
+        //1. đọc QR
+        const data = JSON.parse(text);
+        const ticketId = String(data.t);
+        const ts = Number(data.ts);
+
+        busy = true;
+        try {
+            showResult("pending", "Đang kiểm tra vé trên blockchain...");
+
+            //2. Đổi chiều dữ liệu trên chuỗi
+            const info = await contract.verifyTicket(ticketId);
+            if (!info.exists) return showResult("danger", `Vé giả: mã vé ${ticketId} không tồn tại trên blockchain.`);
+            if (String(info.eventId) !== String(eventId) || String(data.e) !== String(eventId)) {
+                return showResult("danger", `Vé #${ticketId} không thuộc sự kiện này.`);
+            }
+            if (info.cancelled) return showResult("danger", "Sự kiện đã bị hủy, vé không còn giá trị.");
+            if (info.used) {
+                const at = await contract.usedAt(ticketId);
+                return showResult("danger", `Vé #${ticketId} đã được dùng lúc ${formatTime(at)}.`);
+            }
+
+            //3. chữ ký phải là của chủ vé (thông điệp giống hệt buyer.js)
+            const message = `TicketChain:${chainId}:${deployment.address.toLowerCase()}:${ticketId}:${ts}`;
+            const signer = ethers.verifyMessage(message, data.s);
+            if (signer.toLowerCase() !== info.owner.toLowerCase()) {
+                return showResult("danger", "Chữ ký không khớp chủ vé: QR bị chụp lại hoặc làm giả.");
+            }
+
+            //4. QR còn hạn
+            const now = Math.floor(Date.now() / 1000);
+            if (now - ts > TC.config.qrTtlSeconds) {
+                return showResult("warning", "QR đã hết hạn. Nhờ khách mở lại vé.");
+            }
+
+            //5. Tạm thời chỉ báo kết quả
+            showResult("success", `Vé #${ticketId} hợp lệ - chủ vé ${shortAddr(info.owner)}`);
+        } catch (err) {
+            console.error(err);
+            showResult("danger", escapeHtml(err.shortMessage || err.message));
+        } finally {
+            busy = false;
+        }
     }
 
     //Camera
