@@ -30,6 +30,7 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
 
     const scannerArea = document.getElementById("scanner-area");
     const resultEl = document.getElementById("scan-result");
+    const logEl = document.getElementById("checkin-log");
 
     scannerArea.innerHTML = `
         <label class="field">Sự kiện đang soát
@@ -107,7 +108,7 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
             await tx.wait();
             acceptedQr.add(text);
 
-            showResult("success", `Vé hợp lệ - mời vào<br><span class="small"> Vé #${ticketId} - chủ vé ${shortAddr(info.owner)}<span>`);
+            showResult("success", `Vé hợp lệ - mời vào<br><span class="small"> Vé #${ticketId} - chủ vé ${shortAddr(info.owner)}</span>`);
             TC.notifyChange();
 
         } catch (err) {
@@ -178,15 +179,76 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
         }
     }
 
+    // Lịch sử soát vé – đọc event TicketUsed, cập nhật mỗi block mới
+
+    let logs = [];
+    let lastBlock = null;
+    let watching = null;
+
+    function renderLog() {
+        const eventId = eventSelect.value;
+        const rows = logs.filter((l) => !eventId || l.eventId === eventId).slice(0, 50);
+        logEl.innerHTML = rows.length === 0
+            ? `<p class="muted">Chưa có vé nào được soát${eventId ? " cho sự kiện này" : ""}.</p>`
+            : `<div class="table-wrap"><table class="table">
+            <thead><tr><th>Giờ</th><th>Vé</th><th>Sự kiện</th><th>Nhân viên</th></tr></thead>
+            <tbody>${rows.map((l) => `
+            <tr class="${l.fresh ? "row-new" : ""}">
+                <td class="small">${formatTime(l.timestamp)}</td>
+                <td>#${l.ticketId}</td><td>#${l.eventId}</td>
+                <td class="mono small">${shortAddr(l.staff)}</td>
+            </tr>`).join("")}</tbody></table></div>`;
+    }
+
+    async function loadLogs(fromBlock, toBlock, fresh) {
+        const { contract } = TC.state;
+        const events = await contract.queryFilter(contract.filters.TicketUsed(), fromBlock, toBlock);
+        const items = events.map((e) => ({
+            ticketId: String(e.args.ticketId),
+            eventId: String(e.args.eventId),
+            staff: e.args.staff,
+            timestamp: e.args.timestamp,
+            fresh,
+            key: `${e.transactionHash}:${e.index}`,
+        }));
+        const known = new Set(logs.map((l) => l.key));
+        logs = [...items.filter((i) => !known.has(i.key)).reverse(), ...logs];
+    }
+    async function startLog() {
+        const { provider, deployment } = TC.state;
+        if (watching) watching.provider.off("block", watching.handler);
+        logs = [];
+        lastBlock = await provider.getBlockNumber();
+        await loadLogs(deployment.deployBlock || 0, lastBlock, false);
+        renderLog();
+
+        const handler = async (blockNumber) => {
+            if (blockNumber <= lastBlock) return;
+            const from = lastBlock + 1;
+            lastBlock = blockNumber;
+            try {
+                logs.forEach((l) => (l.fresh = false));
+                await loadLogs(from, blockNumber, true);
+                renderLog();
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        provider.on("block", handler);
+        watching = { provider, handler };
+    }
     //
-    async function render() {
+    async function render(e) {
         if (!TC.state.contract) {
             eventSelect.innerHTML = "";
+            logEl.innerHTML = `<p class="muted">Kết nối ví để xem lịch sử soát vé.</p>`;
             return;
         }
         await renderEventSelect();
+        if (e?.type === "tc:ready") await startLog();
+        else renderLog();
     }
 
-    TC.onRefresh(() => render().catch(console.error));
+    TC.onRefresh((e) => render(e).catch(console.error));
     render().catch(console.error);
 })();
