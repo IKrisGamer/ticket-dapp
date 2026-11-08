@@ -4,7 +4,7 @@ Tab Soát vé: quét QR, xác minh chữ ký + chủ vé + thời hạn, gọi
 checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai.
 */
 (function () {
-    const { escapeHtml, shortAddr, formatTime, txError } = TC.utils;
+    const { escapeHtml, shortAddr, formatTime, txError, showStatus } = TC.utils;
 
     // ABI - TicketCheckIn (C)
     TC.abi.push(
@@ -31,6 +31,7 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
     const scannerArea = document.getElementById("scanner-area");
     const resultEl = document.getElementById("scan-result");
     const logEl = document.getElementById("checkin-log");
+    const lookupArea = document.getElementById("lookup-area");
 
     scannerArea.innerHTML = `
         <label class="field">Sự kiện đang soát
@@ -237,6 +238,46 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
         provider.on("block", handler);
         watching = { provider, handler };
     }
+
+    eventSelect.addEventListener("change", renderLog);
+
+    // Tra cứu vé công khai – ai cũng dùng được, không tốn gas
+    lookupArea.innerHTML = `
+        <p class="small muted">Nhập mã vé để kiểm tra vé thật hay giả, đã dùng hay chưa. Không cần quyền nhân viên.</p>
+        <form id="lookup-form" class="row">
+            <input type="number" id="lookup-id" min="1" step="1" placeholder="Mã vé, ví dụ 1" required>
+            <button class="btn btn-primary" type="submit">Kiểm tra</button>
+        </form>
+        <div id="lookup-result"></div>
+  `;
+
+    document.getElementById("lookup-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const out = document.getElementById("lookup-result");
+        const { contract } = TC.state;
+        if (!contract) return showStatus(out, "warning", "Hãy kết nối ví để tra cứu.");
+
+        const id = document.getElementById("lookup-id").value;
+        try {
+            const info = await contract.verifyTicket(id);
+            if (!info.exists) {
+                return showStatus(out, "danger", `Vé #${escapeHtml(id)} <strong>không tồn tại</strong> trên blockchain – vé giả.`);
+            }
+            const ev = await contract.getEventInfo(info.eventId);
+            const state = info.cancelled
+                ? ["danger", "Sự kiện đã bị hủy"]
+                : info.used
+                    ? ["warning", `Đã sử dụng lúc ${formatTime(await contract.usedAt(id))}`]
+                    : ["success", "Hợp lệ – chưa sử dụng"];
+            showStatus(out, state[0], `
+        Vé #${escapeHtml(id)} · ${escapeHtml(ev.name)}<br>
+        <span class="small">Chủ vé: <span class="mono">${shortAddr(info.owner)}</span></span><br>
+        ${state[1]}`);
+        } catch (err) {
+            console.error(err);
+            showStatus(out, "danger", escapeHtml(txError(err)));
+        }
+    });
     //
     async function render(e) {
         if (!TC.state.contract) {
