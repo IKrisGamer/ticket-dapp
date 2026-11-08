@@ -4,7 +4,7 @@ Tab Soát vé: quét QR, xác minh chữ ký + chủ vé + thời hạn, gọi
 checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai.
 */
 (function () {
-    const { escapeHtml, shortAddr, formatTime } = TC.utils;
+    const { escapeHtml, shortAddr, formatTime, txError } = TC.utils;
 
     // ABI - TicketCheckIn (C)
     TC.abi.push(
@@ -57,13 +57,14 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
 
     //Xử lí mã QR quét được
     let busy = false;
+    const acceptedQr = new Set(); // QR đã cho vào thành công
     async function handleScan(text) {
         if (busy) return;
         const { contract, chainId, deployment } = TC.state;
         if (!contract) return showResult("warning", "Hãy kết nối ví nhân viên trước.");
 
         const eventId = eventSelect.value;
-        if (!eventId) return showResult("warning","Ví của bạn không phải nhân viên soát vé của sự kiện nào.");
+        if (!eventId) return showResult("warning", "Ví của bạn không phải nhân viên soát vé của sự kiện nào.");
 
         //1. đọc QR
         const data = JSON.parse(text);
@@ -99,11 +100,19 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
                 return showResult("warning", "QR đã hết hạn. Nhờ khách mở lại vé.");
             }
 
-            //5. Tạm thời chỉ báo kết quả
-            showResult("success", `Vé #${ticketId} hợp lệ - chủ vé ${shortAddr(info.owner)}`);
+            // 5. Ghi "đã dùng" lên blockchain
+            showResult("pending", `Vé #${ticketId} hợp lệ. Xác nhận giao dịch trên MetaMask để cho vào..`);
+            const tx = await contract.checkIn(eventId, ticketId);
+            showResult("pending", "Đang ghi trạng thái đã dùng lên blockchain...");
+            await tx.wait();
+            acceptedQr.add(text);
+
+            showResult("success", `Vé hợp lệ - mời vào<br><span class="small"> Vé #${ticketId} - chủ vé ${shortAddr(info.owner)}<span>`);
+            TC.notifyChange();
+
         } catch (err) {
             console.error(err);
-            showResult("danger", escapeHtml(err.shortMessage || err.message));
+            showResult("danger", escapeHtml(txError(err)));
         } finally {
             busy = false;
         }
@@ -122,7 +131,8 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
                 (text) => {
                     // bỏ qua một mã quét liên tục trong 3 giây
                     const now = Date.now();
-                    if (text === lastText && now - lastAt < 3000) return;
+                    if (acceptedQr.has(text)) return;
+                    if (text === lastText && now - lastAt < 5000) return;
                     lastText = text;
                     lastAt = now;
                     handleScan(text);
@@ -147,7 +157,7 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
     });
 
     // Danh sách sự kiện mà ví này được soát
-    
+
     async function renderEventSelect() {
         const { contract, account } = TC.state;
         const previous = eventSelect.value;
