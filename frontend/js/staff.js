@@ -18,7 +18,7 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
         "error TicketNotFound(uint256 ticketId)",
         "error TicketAlreadyUsed(uint256 ticketId)",
         "error WrongEvent(uint256 ticketId, uint256 eventId)",
-        "error EventIsCancelled(uint256 eventId)",
+        "error EventIsCancelled(uint256 eventId)"
     );
 
     Object.assign(TC.errorMessages, {
@@ -56,6 +56,76 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
     const startBtn = document.getElementById("scan-start");
     const stopBtn = document.getElementById("scan-stop");
 
+    // Hàm xác minh (tách riêng để dễ đọc và dễ kiểm thử)
+    /** Thông điệp được ký, PHẢI giống hệt buyer.js của B. */
+    function qrMessage(ticketId, ts) {
+        const { chainId, deployment } = TC.state;
+        return `TicketChain:${chainId}:${deployment.address.toLowerCase()}:${ticketId}:${ts}`;
+    }
+
+    /** Đọc nội dung QR. Trả về { ok, data } hoặc { ok: false, reason }. */
+    function parseQrPayload(text) {
+        let data;
+        try {
+            data = JSON.parse(String(text).trim());
+        } catch {
+            return { ok: false, reason: "Mã QR không đúng định dạng của TicketChain." };
+        }
+        const ticketId = String(data?.t ?? "");
+        const eventId = String(data?.e ?? "");
+        const ts = Number(data?.ts);
+        const sig = data?.s;
+        if (!/^\d+$/.test(ticketId) || !/^\d+$/.test(eventId) || !Number.isInteger(ts) ||
+            typeof sig !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(sig)) {
+            return { ok: false, reason: "Mã QR thiếu thông tin hoặc đã bị sửa." };
+        }
+        return { ok: true, data: { ticketId, eventId, ts, sig } };
+    }
+
+    /** Kiểm tra thời hạn QR. */
+    function checkExpiry(ts) {
+        const now = Math.floor(Date.now() / 1000);
+        if (ts > now + CLOCK_SKEW) return { ok: false, reason: "Thời gian trên QR không hợp lệ." };
+        const age = now - ts;
+        if (age > TC.config.qrTtlSeconds) {
+            return { ok: false, expired: true, reason: `QR đã hết hạn (${age}s trước). Nhờ khách mở lại vé để có QR mới.` };
+        }
+        return { ok: true };
+    }
+
+    /** Kiểm tra chữ ký: người ký QR phải là chủ vé trên chuỗi. */
+    function checkSignature({ ticketId, ts, sig }, owner) {
+        try {
+            const signer = ethers.verifyMessage(qrMessage(ticketId, ts), sig);
+            return signer.toLowerCase() === owner.toLowerCase();
+        } catch {
+            return false;
+        }
+    }
+
+    /** Đối chiếu QR với dữ liệu trên blockchain. Không tốn gas. */
+    async function evaluateTicket(data, eventId) {
+        const { contract } = TC.state;
+        const info = await contract.verifyTicket(data.ticketId);
+
+        if (!info.exists) return { level: "danger", text: `Vé giả: mã vé #${data.ticketId} không tồn tại trên blockchain.` };
+        if (String(info.eventId) !== String(eventId) || data.eventId !== String(eventId)) {
+            return { level: "danger", text: `Vé #${data.ticketId} không thuộc sự kiện này.` };
+        }
+        if (info.cancelled) return { level: "danger", text: "Sự kiện đã bị hủy, vé không còn giá trị." };
+        if (info.used) {
+            const at = await contract.usedAt(data.ticketId);
+            return { level: "danger", text: `Vé #${data.ticketId} đã được dùng lúc ${formatTime(at)}.` };
+        }
+        if (!checkSignature(data, info.owner)) {
+            return { level: "danger", text: "Chữ ký không khớp chủ vé: QR bị chụp lại hoặc làm giả." };
+        }
+        const expiry = checkExpiry(data.ts);
+        if (!expiry.ok) return { level: "warning", text: expiry.reason };
+
+        return { level: "ok", owner: info.owner };
+    }
+
     function showResult(level, html) {
         resultEl.innerHTML = `<div class="result result-${level}">${html}</div>`;
     }
@@ -65,72 +135,29 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
     const acceptedQr = new Set(); // QR đã cho vào thành công
     async function handleScan(text) {
         if (busy) return;
-        const { contract, chainId, deployment } = TC.state;
+        const { contract } = TC.state;
         if (!contract) return showResult("warning", "Hãy kết nối ví nhân viên trước.");
 
         const eventId = eventSelect.value;
         if (!eventId) return showResult("warning", "Ví của bạn không phải nhân viên soát vé của sự kiện nào.");
 
-        //1. đọc QR
-        // 1. Đọc nội dung QR
-        let data;
-        try {
-            data = JSON.parse(String(text).trim());
-        } catch {
-            return showResult("danger", "Mã QR không đúng định dạng của TicketChain.");
-        }
-        const ticketId = String(data?.t ?? "");
-        const ts = Number(data?.ts);
-        if (!/^\d+$/.test(ticketId) || !/^\d+$/.test(String(data?.e ?? "")) || !Number.isInteger(ts) ||
-            typeof data?.s !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(data.s)) {
-            return showResult("danger", "Mã QR thiếu thông tin hoặc đã bị sửa.");
-        }
+        const parsed = parseQrPayload(text);
+        if (!parsed.ok) return showResult("danger", escapeHtml(parsed.reason));
 
         busy = true;
         try {
-            showResult("pending", "Đang kiểm tra vé trên blockchain...");
+            showResult("pending", "Đang kiểm tra vé trên blockchain…");
+            const verdict = await evaluateTicket(parsed.data, eventId);
+            if (verdict.level !== "ok") return showResult(verdict.level, escapeHtml(verdict.text));
 
-            //2. Đổi chiều dữ liệu trên chuỗi
-            const info = await contract.verifyTicket(ticketId);
-            if (!info.exists) return showResult("danger", `Vé giả: mã vé ${ticketId} không tồn tại trên blockchain.`);
-            if (String(info.eventId) !== String(eventId) || String(data.e) !== String(eventId)) {
-                return showResult("danger", `Vé #${ticketId} không thuộc sự kiện này.`);
-            }
-            if (info.cancelled) return showResult("danger", "Sự kiện đã bị hủy, vé không còn giá trị.");
-            if (info.used) {
-                const at = await contract.usedAt(ticketId);
-                return showResult("danger", `Vé #${ticketId} đã được dùng lúc ${formatTime(at)}.`);
-            }
-
-            //3. chữ ký phải là của chủ vé (thông điệp giống hệt buyer.js)
-            const message = `TicketChain:${chainId}:${deployment.address.toLowerCase()}:${ticketId}:${ts}`;
-            let signer = "";
-            try {
-                signer = ethers.verifyMessage(message, data.s);
-            } catch {
-                signer = "";
-            }
-            if (signer.toLowerCase() !== info.owner.toLowerCase()) {
-                return showResult("danger", "Chữ ký không khớp chủ vé: QR bị chụp lại hoặc làm giả.");
-            }
-
-            //4. QR còn hạn
-            const now = Math.floor(Date.now() / 1000);
-            if (ts > now + CLOCK_SKEW) return showResult("warning", "Thời gian trên QR không hợp lệ.");
-            if (now - ts > TC.config.qrTtlSeconds) {
-                return showResult("warning", `QR đã hết hạn (${now - ts}s trước). Nhờ khách mở lại vé để có QR mới.`);
-            }
-
-            // 5. Ghi "đã dùng" lên blockchain
-            showResult("pending", `Vé #${ticketId} hợp lệ. Xác nhận giao dịch trên MetaMask để cho vào..`);
-            const tx = await contract.checkIn(eventId, ticketId);
-            showResult("pending", "Đang ghi trạng thái đã dùng lên blockchain...");
+            showResult("pending", `Vé #${parsed.data.ticketId} hợp lệ. Xác nhận giao dịch trên MetaMask để cho vào…`);
+            const tx = await contract.checkIn(eventId, parsed.data.ticketId);
+            showResult("pending", "Đang ghi trạng thái “đã dùng” lên blockchain…");
             await tx.wait();
             acceptedQr.add(text);
 
-            showResult("success", `Vé hợp lệ - mời vào<br><span class="small"> Vé #${ticketId} - chủ vé ${shortAddr(info.owner)}</span>`);
+            showResult("success", `✔ Vé hợp lệ – mời vào<br><span class="small">Vé #${parsed.data.ticketId} · chủ vé ${shortAddr(verdict.owner)}</span>`);
             TC.notifyChange();
-
         } catch (err) {
             console.error(err);
             showResult("danger", escapeHtml(txError(err)));
@@ -150,7 +177,7 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 240, height: 240 } },
                 (text) => {
-                    // bỏ qua một mã quét liên tục trong 3 giây
+                    // bỏ qua một mã quét liên tục trong 5 giây
                     const now = Date.now();
                     if (acceptedQr.has(text)) return;
                     if (text === lastText && now - lastAt < 5000) return;
