@@ -28,6 +28,9 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
         EventIsCancelled: "Sự kiện đã bị hủy.",
     });
 
+    // Cho phép đồng hồ điện thoại người mua lệch tối đa 30 giây
+    const CLOCK_SKEW = 30;
+
     const scannerArea = document.getElementById("scanner-area");
     const resultEl = document.getElementById("scan-result");
     const logEl = document.getElementById("checkin-log");
@@ -69,9 +72,19 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
         if (!eventId) return showResult("warning", "Ví của bạn không phải nhân viên soát vé của sự kiện nào.");
 
         //1. đọc QR
-        const data = JSON.parse(text);
-        const ticketId = String(data.t);
-        const ts = Number(data.ts);
+        // 1. Đọc nội dung QR
+        let data;
+        try {
+            data = JSON.parse(String(text).trim());
+        } catch {
+            return showResult("danger", "Mã QR không đúng định dạng của TicketChain.");
+        }
+        const ticketId = String(data?.t ?? "");
+        const ts = Number(data?.ts);
+        if (!/^\d+$/.test(ticketId) || !/^\d+$/.test(String(data?.e ?? "")) || !Number.isInteger(ts) ||
+            typeof data?.s !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(data.s)) {
+            return showResult("danger", "Mã QR thiếu thông tin hoặc đã bị sửa.");
+        }
 
         busy = true;
         try {
@@ -91,15 +104,21 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
 
             //3. chữ ký phải là của chủ vé (thông điệp giống hệt buyer.js)
             const message = `TicketChain:${chainId}:${deployment.address.toLowerCase()}:${ticketId}:${ts}`;
-            const signer = ethers.verifyMessage(message, data.s);
+            let signer = "";
+            try {
+                signer = ethers.verifyMessage(message, data.s);
+            } catch {
+                signer = "";
+            }
             if (signer.toLowerCase() !== info.owner.toLowerCase()) {
                 return showResult("danger", "Chữ ký không khớp chủ vé: QR bị chụp lại hoặc làm giả.");
             }
 
             //4. QR còn hạn
             const now = Math.floor(Date.now() / 1000);
+            if (ts > now + CLOCK_SKEW) return showResult("warning", "Thời gian trên QR không hợp lệ.");
             if (now - ts > TC.config.qrTtlSeconds) {
-                return showResult("warning", "QR đã hết hạn. Nhờ khách mở lại vé.");
+                return showResult("warning", `QR đã hết hạn (${now - ts}s trước). Nhờ khách mở lại vé để có QR mới.`);
             }
 
             // 5. Ghi "đã dùng" lên blockchain
