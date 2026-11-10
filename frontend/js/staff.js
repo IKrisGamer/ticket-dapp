@@ -247,27 +247,65 @@ checkIn, lịch sử soát vé theo thời gian thực, tra cứu vé công khai
             </tr>`).join("")}</tbody></table></div>`;
     }
 
+    // RPC Sepolia giới hạn số block mỗi lần gọi eth_getLogs.
+    // Đọc theo từng đoạn; nếu RPC vẫn từ chối thì chia đôi đoạn rồi thử lại.
+    let logStep = 2000;
+
+    async function queryChunk(contract, start, end) {
+        try {
+            return await contract.queryFilter(contract.filters.TicketUsed(), start, end);
+        } catch (err) {
+            if (end - start < 100) throw err;          // đã nhỏ lắm rồi mà vẫn lỗi thì báo lỗi
+            const mid = Math.floor((start + end) / 2);
+            logStep = Math.max(100, Math.floor(logStep / 2));
+            return [
+                ...(await queryChunk(contract, start, mid)),
+                ...(await queryChunk(contract, mid + 1, end)),
+            ];
+        }
+    }
+
     async function loadLogs(fromBlock, toBlock, fresh) {
         const { contract } = TC.state;
-        const events = await contract.queryFilter(contract.filters.TicketUsed(), fromBlock, toBlock);
-        const items = events.map((e) => ({
-            ticketId: String(e.args.ticketId),
-            eventId: String(e.args.eventId),
-            staff: e.args.staff,
-            timestamp: e.args.timestamp,
-            fresh,
-            key: `${e.transactionHash}:${e.index}`,
-        }));
+        const events = [];
+        let start = fromBlock;
+        while (start <= toBlock) {
+            const end = Math.min(start + logStep - 1, toBlock);
+            events.push(...(await queryChunk(contract, start, end)));
+            start = end + 1;                 // đoạn sau luôn bắt đầu ngay sau đoạn trước
+        }
         const known = new Set(logs.map((l) => l.key));
-        logs = [...items.filter((i) => !known.has(i.key)).reverse(), ...logs];
+        const items = [];
+        for (const e of events) {
+            const key = `${e.transactionHash}:${e.index}`;
+            if (known.has(key)) continue;    // bỏ dòng đã có
+            known.add(key);
+            items.push({
+                ticketId: String(e.args.ticketId),
+                eventId: String(e.args.eventId),
+                staff: e.args.staff,
+                timestamp: e.args.timestamp,
+                fresh,
+                key,
+            });
+        }
+        logs = [...items.reverse(), ...logs];
     }
+    
     async function startLog() {
         const { provider, deployment } = TC.state;
         if (watching) watching.provider.off("block", watching.handler);
         logs = [];
         lastBlock = await provider.getBlockNumber();
-        await loadLogs(deployment.deployBlock || 0, lastBlock, false);
-        renderLog();
+        const from = deployment.deployBlock || Math.max(0, lastBlock - 50000);
+        logEl.innerHTML = `<p class="muted">Đang đọc lịch sử soát vé từ blockchain…</p>`;
+        try {
+            await loadLogs(from, lastBlock, false);
+            renderLog();
+        } catch (err) {
+            console.error(err);
+            logEl.innerHTML = `<div class="status status-warning">Không đọc được lịch sử soát vé: ${escapeHtml(err.shortMessage || err.message)}</div>`;
+        }
 
         const handler = async (blockNumber) => {
             if (blockNumber <= lastBlock) return;
