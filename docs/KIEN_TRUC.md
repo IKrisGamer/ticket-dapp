@@ -113,6 +113,6 @@ Mỗi file JS tự thêm ABI của mình vào `TC.abi`, nên khi B hoặc C đ�
 - Mạng: Sepolia testnet (chainId 11155111). Công cụ: Hardhat 2, Solidity 0.8.28, ethers.js v6.
 - Lệnh: `npm run deploy:sepolia`, rồi `npx hardhat verify --network sepolia <địa chỉ>`.
 - `scripts/deploy.js` ghi địa chỉ vào `deployments/sepolia.json` và `frontend/js/deployment.js`.
-- Địa chỉ contract: `<điền sau khi deploy bản cuối>`
-- Etherscan: `https://sepolia.etherscan.io/address/<địa chỉ>`
+- Địa chỉ contract: `0xeF3FC277E4D3a406d3EC91f7b41e2AEd1BB63BB7`
+- Etherscan: `https://sepolia.etherscan.io/address/0xeF3FC277E4D3a406d3EC91f7b41e2AEd1BB63BB7#code`
 - Khóa deploy để trong `.env`, file này nằm trong `.gitignore` và không bao giờ được commit.
