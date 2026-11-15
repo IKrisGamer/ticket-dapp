@@ -1,0 +1,19 @@
+{
+  "name": "ticket-dapp",
+  "version": "0.1.0",
+  "description": "He thong phat hanh va kiem soat ve su kien chong gia mao bang Blockchain",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "serve": "npx --yes http-server frontend -p 5500 -c-1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0"
+  }
+}

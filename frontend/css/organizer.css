@@ -1,0 +1,214 @@
+/* ==================================================================
+   organizer.css – A
+   Giao diện riêng cho header (phần chung) và tab Ban tổ chức.
+   Mọi selector đều bắt đầu bằng .app-header hoặc #organizer
+   nên không ảnh hưởng tab Người mua (B) và Soát vé (C).
+   ================================================================== */
+
+:root {
+  --org-ink: #0b2545;
+  --org-accent: #1d6fe8;
+  --org-accent-2: #0ea5e9;
+  --org-deep: #0b3a82;
+  --org-soft: #e3f0ff;
+  --org-field: #f4f8fd;
+  --org-page: #eaf3ff;
+  --org-line: #d3e3f8;
+}
+
+/* ---------- Nền xanh khi đang ở tab Ban tổ chức ---------- */
+body:has(#tab-organizer:checked) {
+  --bg: var(--org-page);
+  --border: var(--org-line);
+  background:
+    radial-gradient(1200px 400px at 50% -120px, #cfe4ff, transparent 70%),
+    var(--org-page);
+}
+body:has(#tab-organizer:checked) .tabs label[for="tab-organizer"] {
+  color: var(--org-accent);
+  border-bottom-color: var(--org-accent);
+}
+
+/* ---------- Header (phần chung của A) ---------- */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+}
+.app-header .brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--org-accent), var(--org-accent-2));
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(29, 111, 232, 0.35);
+}
+.app-header .brand-name { letter-spacing: -0.01em; }
+.app-header .address {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--org-field);
+  border: 1px solid var(--border);
+}
+.app-header .address:empty { display: none; }
+.app-header .btn-primary {
+  border: none;
+  background: linear-gradient(135deg, var(--org-accent), var(--org-accent-2));
+  box-shadow: 0 4px 12px rgba(29, 111, 232, 0.3);
+}
+.app-header .btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #1559c4, #0284c7); }
+
+/* ---------- Banner ---------- */
+#organizer .org-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding: 26px 28px;
+  border-radius: 16px;
+  color: #fff;
+  background:
+    radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px) 0 0 / 16px 16px,
+    radial-gradient(circle at 90% -30%, rgba(14, 165, 233, 0.55), transparent 55%),
+    linear-gradient(120deg, var(--org-deep), var(--org-accent));
+  box-shadow: 0 12px 30px rgba(11, 58, 130, 0.28);
+}
+#organizer .org-hero h2 { margin: 0 0 6px; font-size: 24px; letter-spacing: -0.02em; }
+#organizer .org-hero p { margin: 0; color: rgba(255, 255, 255, 0.85); }
+
+#organizer .org-steps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#organizer .org-steps span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- Card có đánh số ---------- */
+#organizer { counter-reset: org-card; }
+#organizer .card {
+  padding: 22px 24px;
+  border-radius: 14px;
+  border-color: var(--org-line);
+  box-shadow: 0 2px 6px rgba(11, 37, 69, 0.04);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+#organizer .card:hover {
+  border-color: #b9d4f5;
+  box-shadow: 0 10px 24px rgba(11, 58, 130, 0.08);
+}
+#organizer .card h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -2px 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 17px;
+  color: var(--org-ink);
+}
+#organizer .card h3::before {
+  counter-increment: org-card;
+  content: counter(org-card);
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--org-soft);
+  color: var(--org-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---------- Ô nhập ---------- */
+#organizer label.field { color: #24456e; font-size: 13px; font-weight: 600; }
+#organizer input[type="text"],
+#organizer input[type="number"],
+#organizer input[type="datetime-local"],
+#organizer select {
+  margin-top: 6px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: var(--org-field);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+#organizer input:hover,
+#organizer select:hover { border-color: #b9d4f5; }
+#organizer input:focus,
+#organizer select:focus {
+  outline: none;
+  background: #fff;
+  border-color: var(--org-accent);
+  box-shadow: 0 0 0 4px rgba(29, 111, 232, 0.15);
+}
+#organizer input::placeholder { color: #9bb0cc; }
+
+/* ---------- Nút ---------- */
+#organizer .form-actions { margin-top: 4px; }
+#organizer .btn { border-radius: 10px; padding: 10px 18px; transition: transform 0.1s, box-shadow 0.15s, background 0.15s; }
+#organizer .btn:hover:not(:disabled) { background: var(--org-field); }
+#organizer .btn-primary {
+  border: none;
+  background: linear-gradient(135deg, var(--org-accent), var(--org-accent-2));
+  box-shadow: 0 4px 12px rgba(29, 111, 232, 0.3);
+}
+#organizer .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1559c4, #0284c7);
+  box-shadow: 0 6px 16px rgba(29, 111, 232, 0.38);
+}
+#organizer .btn:active:not(:disabled) { transform: translateY(1px); }
+#organizer .btn-sm { padding: 5px 12px; border-radius: 8px; }
+
+/* ---------- Thông báo trạng thái ---------- */
+#organizer .status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-left: 4px solid currentColor;
+  border-radius: 10px;
+  font-size: 14px;
+}
+#organizer .status::before {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+#organizer .status-success::before { content: "✓"; background: var(--success); }
+#organizer .status-warning::before { content: "!"; background: var(--warning); }
+#organizer .status-danger::before { content: "✕"; background: var(--danger); }
+
+/* ---------- Bảng thống kê ---------- */
+#organizer .table-wrap { border: 1px solid var(--border); border-radius: 12px; }
+#organizer .table th { background: var(--org-field); text-transform: uppercase; font-size: 12px; letter-spacing: 0.03em; }
+#organizer .table tbody tr { transition: background 0.15s; }
+#organizer .table tbody tr:hover { background: #f4f9ff; }
+#organizer .table tbody tr:last-child td { border-bottom: none; }
+#organizer .muted:only-child { margin: 0; padding: 18px; border: 1px dashed var(--border); border-radius: 12px; text-align: center; }
+
+/* ---------- Điện thoại ---------- */
+@media (max-width: 600px) {
+  #organizer .org-hero { flex-direction: column; align-items: flex-start; padding: 22px 20px; }
+  #organizer .card { padding: 18px 16px; }
+  #organizer .form-actions .btn { flex: 1 1 auto; padding: 10px 12px; white-space: nowrap; }
+  .app-header .address { display: none; }
+}
