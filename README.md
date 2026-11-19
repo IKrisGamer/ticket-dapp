@@ -120,6 +120,6 @@ Camera chỉ hoạt động trên `https` hoặc `localhost`. Nếu camera lỗi
 
 | Thành viên | Phần |
 |---|---|
-| A | Sự kiện & phân quyền, kết nối ví, deploy |
-| B | Mua vé & sở hữu vé, QR, dữ liệu demo |
-| C | Soát vé, xác minh QR, hủy sự kiện & hoàn tiền |
+| Yến Nhi - CNTT2311035 | Sự kiện & phân quyền, kết nối ví, deploy |
+| Phú Quý - CNTT2311053 | Mua vé & sở hữu vé, QR, dữ liệu demo |
+| Thanh Tính - CNTT2311077 | Soát vé, xác minh QR, hủy sự kiện & hoàn tiền |
